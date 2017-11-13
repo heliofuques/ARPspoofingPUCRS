@@ -30,6 +30,9 @@ def formatMAC(mac):
     return rt
 
 class HijackIPV4:
+
+    packetFull = ''
+
     def __init__(self):
         #create an INET, STREAMing socket
         try:
@@ -48,6 +51,11 @@ class HijackIPV4:
         self.translateEthernet()
         self.translateIP()
         self.translateTCP()
+
+
+    def sendto(self, dstAddr):
+        self.s.sendto(packetFull, (dstAddr , 0))
+
 
     def translateEthernet(self):
         ethernet_header = self.packet[0:14]
