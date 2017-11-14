@@ -23,6 +23,12 @@ def toHex(s):
     
     return reduce(lambda x,y:x+y, lst)
 
+def ListToString(l):
+    rt = ''
+    for item in l:
+        rt.append(item);
+    return rt
+
 def formatMAC(mac):
     rt = ""
     for i in range(0,c_macSize):
@@ -31,7 +37,8 @@ def formatMAC(mac):
 
 class HijackIPV4:
 
-
+    src_mac = ''
+    dst_mac = ''
     source_port = '' 
     dest_port = ''
     sequence = ''
@@ -47,6 +54,7 @@ class HijackIPV4:
         #create an INET, STREAMing socket
         try:
             self.s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+            self.s.bind((sys.argv[2],0))
             #self.sendingSocker = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.IPPROTO_TCP)
         except socket.error , msg:
             print 'Socket could not be created. Error Code : ' + str(msg[0]) + ' Message ' + msg[1]
@@ -61,20 +69,23 @@ class HijackIPV4:
         self.translateEthernet()
         self.translateIP()
         self.translateTCP()
+        
 
-
-    def sendto(self, dstAddr):
-        self.s.sendto(self.packetFulli[0], (d_addr , 0))
+    def sendto(self):
+        self.s.send(self.packetFull[0])
 
 
     def translateEthernet(self):
         ethernet_header = self.packet[0:14]
-        src_mac = formatMAC(toHex(ethernet_header[0:6].decode("latin1")))
-        dst_mac = formatMAC(toHex(ethernet_header[6:12].decode("latin1")))
+        self.src_mac = toHex(ethernet_header[0:6].decode("latin1")))
+        self.dst_mac = toHex(ethernet_header[6:12].decode("latin1")))
 
-        string_print =  'Source MAC-Address : ' + str(src_mac)\
-        + ' Destination MAC-Address : ' + str(dst_mac)
+        string_print =  'Source MAC-Address : ' + str(self.src_mac)\
+        + ' Destination MAC-Address : ' + str(self.dst_mac)
         debug_print(string_print) 
+
+        self.dst_mac = ListToString(toHex(argv[3]))#funcao q transforma agv[3] em hex
+
 
     def translateIP(self):
 
@@ -96,12 +107,13 @@ class HijackIPV4:
         self.d_addr = socket.inet_ntoa(iph[9]);
 
         string_print = 'Version : ' + str(version) + ' IP Header Length : ' + str(ihl) + ' TTL : '\
-        + str(ttl) + ' Protocol : ' + str(protocol) + ' Source Address : ' + str(s_addr)\
-        + ' Destination Address : ' + str(d_addr)
+        + str(ttl) + ' Protocol : ' + str(protocol) + ' Source Address : ' + str(self.s_addr)\
+        + ' Destination Address : ' + str(self.d_addr)
         debug_print(string_print) 
 
-        # if s_addr == '10.0.0.1':
-        #     print 'found'
+        if self.s_addr == '10.0.0.1':
+            print 'found'
+            self.sendto()
         # print d_addr
         #self.sendingSocker.sendto(self.packetFull[0], (d_addr,8080))
 
@@ -117,13 +129,13 @@ class HijackIPV4:
         self.sequence = tcph[2]
         self.acknowledgement = tcph[3]
         self.doff_reserved = tcph[4]
-        self.tcph_length = doff_reserved >> 4
+        self.tcph_length = self.doff_reserved >> 4
 
-        debug_print ("%s" %('Source Port : ' + str(source_port) + ' Dest Port : ' + str(dest_port)\
-        + ' Sequence Number : ' + str(sequence) + ' Acknowledgement : '\
-        + str(acknowledgement) + ' TCP header length : ' + str(tcph_length))) 
+        debug_print ("%s" %('Source Port : ' + str(self.source_port) + ' Dest Port : ' + str(self.dest_port)\
+        + ' Sequence Number : ' + str(self.sequence) + ' Acknowledgement : '\
+        + str(self.acknowledgement) + ' TCP header length : ' + str(self.tcph_length))) 
 
-        h_size = self.iph_length + tcph_length * 4
+        h_size = self.iph_length + self.tcph_length * 4
         data_size = len(self.packet) - h_size
 
         #get data from the self.packet
