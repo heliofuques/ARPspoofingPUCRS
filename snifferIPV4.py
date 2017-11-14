@@ -31,13 +31,22 @@ def formatMAC(mac):
 
 class HijackIPV4:
 
+
+    source_port = '' 
+    dest_port = ''
+    sequence = ''
+    acknowledgement = ''
+    doff_reserved = ''
+    tcph_length = ''
     packetFull = ''
+    s_addr = ''
+    d_addr = ''
 
     def __init__(self):
         #create an INET, STREAMing socket
         try:
             self.s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
-            self.sendingSocker = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.IPPROTO_TCP)
+            #self.sendingSocker = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.IPPROTO_TCP)
         except socket.error , msg:
             print 'Socket could not be created. Error Code : ' + str(msg[0]) + ' Message ' + msg[1]
             sys.exit()
@@ -54,7 +63,7 @@ class HijackIPV4:
 
 
     def sendto(self, dstAddr):
-        self.s.sendto(packetFull, (dstAddr , 0))
+        self.s.sendto(packetFull, (d_addr , 0))
 
 
     def translateEthernet(self):
@@ -82,8 +91,8 @@ class HijackIPV4:
 
         ttl = iph[5]
         protocol = iph[6]
-        s_addr = socket.inet_ntoa(iph[8]);
-        d_addr = socket.inet_ntoa(iph[9]);
+        self.s_addr = socket.inet_ntoa(iph[8]);
+        self.d_addr = socket.inet_ntoa(iph[9]);
 
         string_print = 'Version : ' + str(version) + ' IP Header Length : ' + str(ihl) + ' TTL : '\
         + str(ttl) + ' Protocol : ' + str(protocol) + ' Source Address : ' + str(s_addr)\
@@ -93,20 +102,21 @@ class HijackIPV4:
         # if s_addr == '10.0.0.1':
         #     print 'found'
         # print d_addr
-        # self.sendingSocker.sendto(self.packetFull[0], (d_addr,8080))
+        #self.sendingSocker.sendto(self.packetFull[0], (d_addr,8080))
 
     def translateTCP(self):
+
         tcp_header = self.packet[self.iph_length:self.iph_length+20]
 
         #now unpack them :)
         tcph = unpack('!HHLLBBHHH' , tcp_header)
 
-        source_port = tcph[0]
-        dest_port = tcph[1]
-        sequence = tcph[2]
-        acknowledgement = tcph[3]
-        doff_reserved = tcph[4]
-        tcph_length = doff_reserved >> 4
+        self.source_port = tcph[0]
+        self.dest_port = tcph[1]
+        self.sequence = tcph[2]
+        self.acknowledgement = tcph[3]
+        self.doff_reserved = tcph[4]
+        self.tcph_length = doff_reserved >> 4
 
         debug_print ("%s" %('Source Port : ' + str(source_port) + ' Dest Port : ' + str(dest_port)\
         + ' Sequence Number : ' + str(sequence) + ' Acknowledgement : '\
