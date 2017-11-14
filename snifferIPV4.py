@@ -38,6 +38,7 @@ class HijackIPV4:
     acknowledgement = ''
     doff_reserved = ''
     tcph_length = ''
+    packet = ''
     packetFull = ''
     s_addr = ''
     d_addr = ''
@@ -63,7 +64,7 @@ class HijackIPV4:
 
 
     def sendto(self, dstAddr):
-        self.s.sendto(packetFull, (d_addr , 0))
+        self.s.sendto(self.packetFulli[0], (d_addr , 0))
 
 
     def translateEthernet(self):
