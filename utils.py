@@ -1,3 +1,5 @@
+import sys, select
+
 def toHex(s):
     lst = []
     for ch in s:
@@ -19,3 +21,7 @@ def formatMAC(mac):
     for i in range(0,c_macSize):
         rt += "%s%s"%(mac[i:i+2],":")
     return rt
+
+def GetChar(Block=True):
+  if Block or select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
+    return sys.stdin.read(1)
