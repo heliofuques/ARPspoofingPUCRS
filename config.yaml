@@ -2,11 +2,13 @@ mode: release # or debug
 src_node:
   name: h1
   ip: 10.0.0.1
-  mac: anyone
+  mac: 42cd209a6201
 dst_node:
   name: h2
   ip: 10.0.0.2
   mac: a615f138dc35 #without :
 atacking_node:
   name: h3
+  ip: 10.0.0.3
   interface: h3-eth0
+  mac: 0ae79d54a936 #without :

