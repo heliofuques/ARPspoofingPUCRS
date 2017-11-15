@@ -77,6 +77,9 @@ class HijackIPV4:
 
     def translateEthernet(self):
         ethernet_header = self.packet[0:14]
+        eth = unpack('!6s6sH' , ethernet_header)
+         
+        
         self.src_mac = toHex(ethernet_header[0:6].decode("latin1")))
         self.dst_mac = toHex(ethernet_header[6:12].decode("latin1")))
 
@@ -84,7 +87,12 @@ class HijackIPV4:
         + ' Destination MAC-Address : ' + str(self.dst_mac)
         debug_print(string_print) 
 
+        # nao seria o src_mac? 
         self.dst_mac = ListToString(toHex(argv[3]))#funcao q transforma agv[3] em hex
+
+        
+        self.packet[0:14] = pack('!6s6sH', self.src_mac, self.dst_mac, eth[2])
+        
 
 
     def translateIP(self):
