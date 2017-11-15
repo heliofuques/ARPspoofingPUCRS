@@ -1,0 +1,12 @@
+mode: release # or debug
+src_node:
+  name: h1
+  ip: 10.0.0.1
+  mac: anyone
+dst_node:
+  name: h2
+  ip: 10.0.0.2
+  mac: a615f138dc35 #without :
+atacking_node:
+  name: h3
+  interface: h3-eth0
